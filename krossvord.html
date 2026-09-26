@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blokcheyn Krossvordi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#0d1b2a;
+    --paper:#eef1f5;
+    --block:#13294b;
+    --gold:#c9a24b;
+    --good:#2f8a5b;
+    --bad:#b8442f;
+    --wire:#7f93ad;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image:
+      radial-gradient(circle at 15% 15%, rgba(19,41,75,0.05) 0, transparent 45%),
+      radial-gradient(circle at 85% 85%, rgba(201,162,75,0.08) 0, transparent 45%);
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:22px 12px 60px;
+  }
+  .app{ width:100%; max-width:480px; }
+  header{margin-bottom:16px;}
+  .eyebrow{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--wire); }
+  h1{ font-size:24px; font-weight:700; margin:4px 0 6px; line-height:1.15; }
+  .sub{ font-size:13.5px; color:#4a5a70; line-height:1.4; }
+
+  .statbar{
+    display:flex; justify-content:space-between; align-items:center;
+    background:var(--block); color:#fff; border-radius:12px;
+    padding:12px 16px; margin:16px 0; gap:8px;
+  }
+  .statbar .stat{display:flex;flex-direction:column;flex:1;text-align:center;}
+  .statbar .num{ font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:600; color:var(--gold); }
+  .statbar .num.timer-warning{ color: var(--bad); }
+  .statbar .label{font-size:10.5px;color:#b9c4d4;}
+
+  .gridwrap{
+    width:100%; overflow-x:auto; margin-bottom:18px;
+    background:#fff; border-radius:14px; padding:14px;
+    box-shadow:0 10px 30px rgba(13,27,42,0.08);
+  }
+  .grid{ display:grid; gap:2px; margin:0 auto; }
+  .cell{ position:relative; width:30px; height:30px; background:transparent; }
+  .cell.active{ background:#f4f6f9; border:1.5px solid #ccd5e0; border-radius:4px; }
+  .cell.active.filled-correct{ background:rgba(47,138,91,0.14); border-color:var(--good); }
+  .cell.active.filled-wrong{ background:rgba(184,68,47,0.12); border-color:var(--bad); }
+  .cell.active.highlight{ border-color:var(--gold); box-shadow:0 0 0 2px rgba(201,162,75,0.3); }
+  .cell.active.revealed{ background:rgba(201,162,75,0.16); border-color:var(--gold); }
+  .cell input{
+    width:100%; height:100%; border:none; background:transparent;
+    text-align:center; text-transform:uppercase;
+    font-family:'IBM Plex Mono', monospace; font-size:15px; font-weight:600;
+    color:var(--ink); outline:none; padding:0;
+  }
+  .cell input:disabled{ color: var(--ink); opacity: 1; }
+  .cell .num{
+    position:absolute; top:1px; left:2px; font-size:8px;
+    font-family:'IBM Plex Mono', monospace; color:var(--wire); pointer-events:none;
+  }
+
+  .clues{
+    background:#fff; border-radius:14px; padding:16px 18px;
+    box-shadow:0 10px 30px rgba(13,27,42,0.08); margin-bottom:16px;
+  }
+  .clues h3{ font-size:13px; font-family:'IBM Plex Mono', monospace; color:var(--wire); margin:0 0 8px; }
+  .clues .group{margin-bottom:14px;}
+  .clues .group:last-child{margin-bottom:0;}
+  .clue-item{
+    font-size:13.5px; line-height:1.5; padding:6px 0;
+    border-bottom:1px solid #eef1f5; display:flex; gap:8px;
+    cursor:pointer; transition:background .15s ease; border-radius:6px;
+  }
+  .clue-item:hover{background:#f8f9fb;}
+  .clue-item:last-child{border-bottom:none;}
+  .clue-item .cnum{ font-family:'IBM Plex Mono', monospace; font-weight:600; color:var(--block); min-width:18px; }
+  .clue-item.solved{ color:var(--good); text-decoration:line-through; text-decoration-color:rgba(47,138,91,0.4); }
+  .clue-item.active-clue{ background:rgba(201,162,75,0.12); }
+
+  .actions{ display:flex; gap:10px; }
+  .btn{
+    flex:1; padding:12px; border:none; border-radius:10px;
+    font-family:'Space Grotesk', sans-serif; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  .btn.primary{ background:var(--ink); color:#fff; }
+  .btn.secondary{ background:#e2e7ee; color:var(--ink); }
+  .btn:active{transform:scale(0.98);}
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .winbanner{
+    display:none; background:var(--good); color:#fff; border-radius:12px;
+    padding:16px; text-align:center; margin-bottom:16px; font-weight:600;
+  }
+  .winbanner.show{display:block;}
+
+  .timeupbanner{
+    display:none; background:var(--bad); color:#fff; border-radius:12px;
+    padding:16px; text-align:center; margin-bottom:16px; font-weight:600;
+  }
+  .timeupbanner.show{display:block;}
+
+  footer{
+    text-align:center; margin-top:20px; font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color:#9aa7b8;
+  }
+  footer .admin-link{
+    color:var(--wire); text-decoration:underline; cursor:pointer;
+    background:none; border:none; font-family:inherit; font-size:inherit;
+  }
+
+  .overlay{
+    position:fixed; inset:0; background:rgba(13,27,42,0.72);
+    display:flex; align-items:center; justify-content:center; z-index:50; padding:16px;
+  }
+  .overlay.hidden{ display:none; }
+  .modal{
+    background:#fff; border-radius:16px; padding:24px; max-width:360px; width:100%;
+    box-shadow:0 20px 50px rgba(0,0,0,0.3);
+  }
+  .modal h2{ margin:0 0 8px; font-size:19px; }
+  .modal p{ margin:0 0 16px; font-size:13.5px; color:#4a5a70; line-height:1.5; }
+  .modal input[type=text], .modal input[type=password]{
+    width:100%; padding:11px 12px; border:1.5px solid #ccd5e0;
+    border-radius:9px; font-family:'Space Grotesk', sans-serif;
+    font-size:14px; margin-bottom:12px; outline:none;
+  }
+  .modal input[type=text]:focus, .modal input[type=password]:focus{ border-color:var(--gold); }
+
+  .modal.admin{ max-width:440px; max-height:80vh; overflow-y:auto; }
+  table.scoreboard{ width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:14px; }
+  table.scoreboard th, table.scoreboard td{ text-align:left; padding:7px 6px; border-bottom:1px solid #eef1f5; }
+  table.scoreboard th{ font-family:'IBM Plex Mono', monospace; color:var(--wire); font-weight:600; font-size:11px; }
+  table.scoreboard tr:first-child td{ font-weight:700; color:var(--good); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="eyebrow">DT LOYIHALAR // SOʻZ TOPISH</div>
+    <h1>Blokcheyn krossvordi</h1>
+    <p class="sub">Har bir taʼrifga mos atamani panjaraga joylashtiring. 3 daqiqa ichida imkon qadar ko'p so'zni toping.</p>
+  </header>
+
+  <div class="statbar">
+    <div class="stat">
+      <span class="num" id="timerNum">3:00</span>
+      <span class="label">VAQT</span>
+    </div>
+    <div class="stat">
+      <span class="num" id="solvedNum">0/7</span>
+      <span class="label">TOPILDI</span>
+    </div>
+    <div class="stat">
+      <span class="num" id="checkNum">0</span>
+      <span class="label">TEKSHIRISH</span>
+    </div>
+  </div>
+
+  <div class="winbanner" id="winbanner">🎉 Ajoyib! Barcha atamalarni vaqtida topdingiz.</div>
+  <div class="timeupbanner" id="timeupbanner">⏰ Vaqt tugadi! Javoblar avtomatik ko'rsatildi.</div>
+
+  <div class="gridwrap">
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="clues">
+    <div class="group">
+      <h3>KO'NDALANG →</h3>
+      <div id="acrossClues"></div>
+    </div>
+    <div class="group">
+      <h3>TIK ↓</h3>
+      <div id="downClues"></div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn secondary" id="checkBtn">Tekshirish</button>
+    <button class="btn primary" id="revealBtn">Yakunlash</button>
+  </div>
+
+  <footer>
+    BLOKCHEYN TEXNOLOGIYASI VA DT LOYIHALAR BOSHQARUVI<br>
+    <button class="admin-link" id="adminLink">🔐 Admin panel</button>
+  </footer>
+</div>
+
+<div class="overlay" id="startOverlay">
+  <div class="modal">
+    <h2>Ismingizni kiriting</h2>
+    <p>3 daqiqa vaqtingiz bor. Vaqt tugagach, javoblar avtomatik ko'rsatiladi va natijangiz reytingga yoziladi.</p>
+    <input type="text" id="playerNameInput" placeholder="Ism familiya" maxlength="40">
+    <button class="btn primary" id="startBtn" style="width:100%;">Boshlash</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="adminPassOverlay">
+  <div class="modal">
+    <h2>Admin panel</h2>
+    <p>Davom etish uchun parolni kiriting.</p>
+    <input type="password" id="adminPassInput" placeholder="Parol">
+    <div class="actions">
+      <button class="btn secondary" id="adminCancelBtn">Bekor qilish</button>
+      <button class="btn primary" id="adminEnterBtn">Kirish</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay hidden" id="adminBoardOverlay">
+  <div class="modal admin">
+    <h2>📊 Reyting jadvali</h2>
+    <p>Barcha ishtirokchilarning urinishlari (Google Sheets orqali).</p>
+    <table class="scoreboard" id="scoreTable">
+      <thead>
+        <tr><th>#</th><th>Ism</th><th>Topdi</th><th>Vaqt</th><th>Holat</th><th>Sana</th></tr>
+      </thead>
+      <tbody id="scoreTableBody"></tbody>
+    </table>
+    <div class="actions">
+      <button class="btn secondary" id="clearScoresBtn">🗑️ Lokalni tozalash</button>
+      <button class="btn primary" id="closeAdminBtn">Yopish</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== SOZLAMALAR ==============
+const GAME_SECONDS = 180;           // 3 daqiqa
+const ADMIN_PASSWORD = "admin2026"; // <-- buni o'zgartiring!
+const STORAGE_KEY = "crossword_scores_v1";
+// Google Apps Script "Web app" deploy qilingandan keyingi URL shu yerga qo'yiladi:
+const SHEET_WEBAPP_URL = "BU_YERGA_OZINGIZNING_WEB_APP_URL_NI_QOYING";
+
+// ============== KROSSVORD MA'LUMOTLARI ==============
+const placedWords = [
+  { word: "BLOKCHEYN", row: 0, col: 0, dir: "H", num: 1, clue: "Ma'lumotlarni tarqoq va o'zgarmas holda saqlaydigan texnologiya" },
+  { word: "KADASTR",   row: 0, col: 3, dir: "V", num: 2, clue: "Yer uchastkalari va egalik huquqi hisobga olinadigan tizim" },
+  { word: "ORACLE",    row: 1, col: 1, dir: "H", num: 3, clue: "Tashqi (masalan, bank) ma'lumotini blokcheynga yetkazuvchi xizmat" },
+  { word: "ONEID",     row: 1, col: 1, dir: "V", num: 4, clue: "Xaridor va sotuvchi tizimga shu orqali kiradigan identifikatsiya xizmati" },
+  { word: "ZANJIR",    row: 3, col: 2, dir: "H", num: 5, clue: "Bloklarning ketma-ket bog'langan tuzilmasi" },
+  { word: "TOKEN",     row: 5, col: 3, dir: "H", num: 6, clue: "Blokcheynda qiymatga ega raqamli aktiv birligi" },
+  { word: "TARQOQ",    row: 6, col: 1, dir: "H", num: 7, clue: "Markazlashmagan, ko'p nuqtada saqlanadigan tizim turi (sifatdosh)" }
+];
+
+let gridData = {};
+let maxRow = 0, maxCol = 0;
+
+placedWords.forEach(w => {
+  for (let i = 0; i < w.word.length; i++) {
+    const r = w.dir === "H" ? w.row : w.row + i;
+    const c = w.dir === "H" ? w.col + i : w.col;
+    maxRow = Math.max(maxRow, r);
+    maxCol = Math.max(maxCol, c);
+    const key = r + "," + c;
+    if (!gridData[key]) gridData[key] = { letter: w.word[i], words: [] };
+    gridData[key].words.push({ id: w.num, dir: w.dir });
+  }
+});
+
+const numRows = maxRow + 1;
+const numCols = maxCol + 1;
+
+const startCells = {};
+placedWords.forEach(w => { startCells[w.row + "," + w.col] = w.num; });
+
+const gridEl = document.getElementById('grid');
+gridEl.style.gridTemplateColumns = `repeat(${numCols}, 30px)`;
+gridEl.style.gridTemplateRows = `repeat(${numRows}, 30px)`;
+
+const cellRefs = {};
+
+for (let r = 0; r < numRows; r++) {
+  for (let c = 0; c < numCols; c++) {
+    const key = r + "," + c;
+    const cellDiv = document.createElement('div');
+    cellDiv.className = 'cell';
+    if (gridData[key]) {
+      cellDiv.classList.add('active');
+      cellDiv.dataset.key = key;
+      if (startCells[key]) {
+        const numSpan = document.createElement('span');
+        numSpan.className = 'num';
+        numSpan.textContent = startCells[key];
+        cellDiv.appendChild(numSpan);
+      }
+      const input = document.createElement('input');
+      input.maxLength = 1;
+      input.dataset.key = key;
+      input.autocomplete = "off";
+      input.addEventListener('input', (e) => onCellInput(e, key));
+      input.addEventListener('keydown', (e) => onKeyDown(e, key));
+      input.addEventListener('focus', () => highlightWord(key));
+      cellDiv.appendChild(input);
+      cellRefs[key] = input;
+    }
+    gridEl.appendChild(cellDiv);
+  }
+}
+
+document.getElementById('solvedNum').textContent = `0/${placedWords.length}`;
+
+const acrossWrap = document.getElementById('acrossClues');
+const downWrap = document.getElementById('downClues');
+
+placedWords.filter(w => w.dir === "H").sort((a,b)=>a.num-b.num).forEach(w => {
+  const div = document.createElement('div');
+  div.className = 'clue-item';
+  div.dataset.wordId = w.num;
+  div.innerHTML = `<span class="cnum">${w.num}.</span><span>${w.clue} <em>(${w.word.length} harf)</em></span>`;
+  div.addEventListener('click', () => focusWord(w));
+  acrossWrap.appendChild(div);
+});
+
+placedWords.filter(w => w.dir === "V").sort((a,b)=>a.num-b.num).forEach(w => {
+  const div = document.createElement('div');
+  div.className = 'clue-item';
+  div.dataset.wordId = w.num;
+  div.innerHTML = `<span class="cnum">${w.num}.</span><span>${w.clue} <em>(${w.word.length} harf)</em></span>`;
+  div.addEventListener('click', () => focusWord(w));
+  downWrap.appendChild(div);
+});
+
+function focusWord(w) {
+  const key = w.row + "," + w.col;
+  if (cellRefs[key]) cellRefs[key].focus();
+}
+
+function highlightWord(key) {
+  document.querySelectorAll('.cell.highlight').forEach(el => el.classList.remove('highlight'));
+  document.querySelectorAll('.clue-item.active-clue').forEach(el => el.classList.remove('active-clue'));
+  const wordsAtCell = gridData[key].words;
+  wordsAtCell.forEach(wref => {
+    const w = placedWords.find(pw => pw.num === wref.id && pw.dir === wref.dir);
+    if (!w) return;
+    for (let i = 0; i < w.word.length; i++) {
+      const r = w.dir === "H" ? w.row : w.row + i;
+      const c = w.dir === "H" ? w.col + i : w.col;
+      const cellDiv = document.querySelector(`.cell[data-key="${r+","+c}"]`);
+      if (cellDiv) cellDiv.classList.add('highlight');
+    }
+    const clueItem = document.querySelector(`.clue-item[data-word-id="${w.num}"]`);
+    if (clueItem && ((w.dir==="H" && clueItem.parentElement.id==="acrossClues") || (w.dir==="V" && clueItem.parentElement.id==="downClues"))) {
+      clueItem.classList.add('active-clue');
+    }
+  });
+}
+
+function onCellInput(e, key) {
+  if (gameOver) { e.target.value = ""; return; }
+  const val = e.target.value.toUpperCase().replace(/[^A-ZA-Za-zʻʼ']/g, '');
+  e.target.value = val.slice(-1);
+  const wordsAtCell = gridData[key].words;
+  if (val && wordsAtCell.length) {
+    const pref = wordsAtCell.find(w => w.dir === "H") || wordsAtCell[0];
+    const w = placedWords.find(pw => pw.num === pref.id && pw.dir === pref.dir);
+    const idx = w.dir === "H" ? (parseInt(key.split(',')[1]) - w.col) : (parseInt(key.split(',')[0]) - w.row);
+    const nextIdx = idx + 1;
+    if (nextIdx < w.word.length) {
+      const nr = w.dir === "H" ? w.row : w.row + nextIdx;
+      const nc = w.dir === "H" ? w.col + nextIdx : w.col;
+      const nextInput = cellRefs[nr+","+nc];
+      if (nextInput) nextInput.focus();
+    }
+  }
+}
+
+function onKeyDown(e, key) {
+  if (e.key === "Backspace" && !e.target.value) {
+    const wordsAtCell = gridData[key].words;
+    if (wordsAtCell.length) {
+      const pref = wordsAtCell.find(w => w.dir === "H") || wordsAtCell[0];
+      const w = placedWords.find(pw => pw.num === pref.id && pw.dir === pref.dir);
+      const idx = w.dir === "H" ? (parseInt(key.split(',')[1]) - w.col) : (parseInt(key.split(',')[0]) - w.row);
+      const prevIdx = idx - 1;
+      if (prevIdx >= 0) {
+        const pr = w.dir === "H" ? w.row : w.row + prevIdx;
+        const pc = w.dir === "H" ? w.col + prevIdx : w.col;
+        const prevInput = cellRefs[pr+","+pc];
+        if (prevInput) prevInput.focus();
+      }
+    }
+  }
+}
+
+// ============== O'YIN HOLATI ==============
+let checkCount = 0;
+let gameOver = false;
+let timeLeft = GAME_SECONDS;
+let timerInterval = null;
+let playerName = "";
+
+document.getElementById('checkBtn').addEventListener('click', () => {
+  if (gameOver) return;
+  checkCount++;
+  document.getElementById('checkNum').textContent = checkCount;
+  evaluateGrid();
+});
+
+document.getElementById('revealBtn').addEventListener('click', () => {
+  finishGame(false);
+});
+
+function lockBoard() {
+  Object.values(cellRefs).forEach(input => input.disabled = true);
+  document.getElementById('checkBtn').disabled = true;
+  document.getElementById('revealBtn').disabled = true;
+}
+
+function revealAnswers() {
+  Object.keys(gridData).forEach(key => {
+    const input = cellRefs[key];
+    const cellDiv = document.querySelector(`.cell[data-key="${key}"]`);
+    if (input && !input.value) {
+      input.value = gridData[key].letter;
+      if (cellDiv) cellDiv.classList.add('revealed');
+    }
+  });
+}
+
+function evaluateGrid() {
+  let solvedWords = 0;
+  placedWords.forEach(w => {
+    let correct = true;
+    let filled = true;
+    for (let i = 0; i < w.word.length; i++) {
+      const r = w.dir === "H" ? w.row : w.row + i;
+      const c = w.dir === "H" ? w.col + i : w.col;
+      const input = cellRefs[r+","+c];
+      if (!input.value) filled = false;
+      if (input.value.toUpperCase() !== w.word[i]) correct = false;
+    }
+    for (let i = 0; i < w.word.length; i++) {
+      const r = w.dir === "H" ? w.row : w.row + i;
+      const c = w.dir === "H" ? w.col + i : w.col;
+      const cellDiv = document.querySelector(`.cell[data-key="${r+","+c}"]`);
+      cellDiv.classList.remove('filled-correct','filled-wrong');
+      if (filled) cellDiv.classList.add(correct ? 'filled-correct' : 'filled-wrong');
+    }
+    const relevantClueList = w.dir === "H" ? acrossWrap : downWrap;
+    const item = relevantClueList.querySelector(`.clue-item[data-word-id="${w.num}"]`);
+    if (item) {
+      if (correct && filled) { item.classList.add('solved'); solvedWords++; }
+      else item.classList.remove('solved');
+    }
+  });
+
+  document.getElementById('solvedNum').textContent = `${solvedWords}/${placedWords.length}`;
+
+  if (solvedWords === placedWords.length && !gameOver) {
+    finishGame(true);
+  }
+  return solvedWords;
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById('timerNum').textContent = formatTime(Math.max(timeLeft,0));
+    if (timeLeft <= 30) document.getElementById('timerNum').classList.add('timer-warning');
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      document.getElementById('timeupbanner').classList.add('show');
+      finishGame(false, true);
+    }
+  }, 1000);
+}
+
+function finishGame(completedEarly, timedOut) {
+  if (gameOver) return;
+  gameOver = true;
+  clearInterval(timerInterval);
+  const solvedWords = evaluateGrid();
+  revealAnswers();
+  lockBoard();
+
+  if (completedEarly) {
+    document.getElementById('winbanner').classList.add('show');
+  }
+
+  const elapsedSec = GAME_SECONDS - Math.max(timeLeft, 0);
+  saveScore({
+    name: playerName || "Ismsiz",
+    solved: solvedWords,
+    total: placedWords.length,
+    timeUsed: elapsedSec,
+    checks: checkCount,
+    completed: completedEarly,
+    timedOut: !!timedOut,
+    date: new Date().toLocaleString('uz-UZ')
+  });
+}
+
+// ============== ISM KIRITISH ==============
+document.getElementById('startBtn').addEventListener('click', () => {
+  const val = document.getElementById('playerNameInput').value.trim();
+  playerName = val || "Ismsiz";
+  document.getElementById('startOverlay').classList.add('hidden');
+  startTimer();
+});
+document.getElementById('playerNameInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('startBtn').click();
+});
+
+// ============== REYTING (localStorage + Google Sheets) ==============
+function loadLocalScores() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
+  catch (e) { return []; }
+}
+
+function saveScore(record) {
+  // Zaxira sifatida localStorage'ga ham yozamiz (internet uzilsa yo'qolmasin)
+  const scores = loadLocalScores();
+  scores.push(record);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
+
+  // Google Sheets'ga yuboramiz
+  if (SHEET_WEBAPP_URL && !SHEET_WEBAPP_URL.includes("BU_YERGA")) {
+    fetch(SHEET_WEBAPP_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // CORS preflight'dan qochish uchun
+      body: JSON.stringify(record)
+    }).catch(err => console.warn("Sheets'ga yuborishda xatolik:", err));
+  }
+}
+
+async function renderScoreTable() {
+  const tbody = document.getElementById('scoreTableBody');
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9aa7b8;">Yuklanmoqda...</td></tr>`;
+
+  let scores = [];
+  let usedSheets = false;
+
+  if (SHEET_WEBAPP_URL && !SHEET_WEBAPP_URL.includes("BU_YERGA")) {
+    try {
+      const res = await fetch(SHEET_WEBAPP_URL);
+      scores = await res.json();
+      usedSheets = true;
+    } catch (err) {
+      console.warn("Sheets'dan o'qishda xatolik, faqat lokal natijalar ko'rsatiladi:", err);
+      scores = loadLocalScores();
+    }
+  } else {
+    scores = loadLocalScores();
+  }
+
+  scores.sort((a, b) => {
+    if (b.solved !== a.solved) return b.solved - a.solved;
+    return a.timeUsed - b.timeUsed;
+  });
+
+  tbody.innerHTML = "";
+  if (scores.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9aa7b8;">Hali natija yo'q</td></tr>`;
+    return;
+  }
+  scores.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    const holat = s.completed ? "✅ Tugatdi" : (s.timedOut ? "⏰ Vaqt tugadi" : "⏹️ To'xtatdi");
+    tr.innerHTML = `<td>${i+1}</td><td>${s.name}</td><td>${s.solved}/${s.total}</td><td>${formatTime(s.timeUsed)}</td><td>${holat}</td><td>${s.date}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  if (!usedSheets) {
+    const note = document.createElement('p');
+    note.style.cssText = "font-size:11px;color:var(--bad);margin-top:6px;";
+    note.textContent = "⚠️ Google Sheets'ga ulanib bo'lmadi — faqat shu qurilmadagi natijalar ko'rsatilmoqda.";
+    document.getElementById('scoreTable').after(note);
+  }
+}
+
+// ============== ADMIN PANEL ==============
+document.getElementById('adminLink').addEventListener('click', () => {
+  document.getElementById('adminPassOverlay').classList.remove('hidden');
+  document.getElementById('adminPassInput').value = "";
+  document.getElementById('adminPassInput').focus();
+});
+document.getElementById('adminCancelBtn').addEventListener('click', () => {
+  document.getElementById('adminPassOverlay').classList.add('hidden');
+});
+document.getElementById('adminEnterBtn').addEventListener('click', () => {
+  const pass = document.getElementById('adminPassInput').value;
+  if (pass === ADMIN_PASSWORD) {
+    document.getElementById('adminPassOverlay').classList.add('hidden');
+    renderScoreTable();
+    document.getElementById('adminBoardOverlay').classList.remove('hidden');
+  } else {
+    alert("Parol noto'g'ri!");
+  }
+});
+document.getElementById('adminPassInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('adminEnterBtn').click();
+});
+document.getElementById('closeAdminBtn').addEventListener('click', () => {
+  document.getElementById('adminBoardOverlay').classList.add('hidden');
+});
+document.getElementById('clearScoresBtn').addEventListener('click', () => {
+  if (confirm("Faqat shu qurilmadagi lokal nusxani o'chirishni tasdiqlaysizmi? (Google Sheets'dagi ma'lumot o'chmaydi)")) {
+    localStorage.removeItem(STORAGE_KEY);
+    renderScoreTable();
+  }
+});
+</script>
+</body>
+</html>
